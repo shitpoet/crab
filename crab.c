@@ -113,6 +113,7 @@ void rewrite(char* dest, char* src, size_t n) {
   char cobra = false;
   char prev_cobra = false;
 
+  char pc = '\0';
   while (src < end) {
     char c = *src;
     //char c2 = *(src+1);
@@ -156,28 +157,38 @@ void rewrite(char* dest, char* src, size_t n) {
         src++;
       } else {
         if (src+7 < end) {
-
           if (line_end == nil) { // start of line
+            uint32_t four = *(uint32_t*)src;
             char c3 = *(src+2);
             char c4 = *(src+3);
             char c5 = *(src+4);
             char c6 = *(src+5);
             char c7 = *(src+6);
             char c8 = *(src+7);
-            if (c=='i' && c2=='f') {
-              /*printf("IF\n");*/
-              if (c3==' ' && c4=='(') { // with `(`
+
+
+            if (c=='e' && c2=='l' && c3=='i' && c4=='f') {
+
+              if (c5==' ' && c6=='(') { // with `(`
                 /*printf("IF with (\n");*/
-              } else if (c3==' ') { // no `(`
+              } else if (c5==' ') { // no `(`
                 /*printf("IF w/o (\n");*/
               //if (c3!='(' || c3<=' '&&c4!='(') { // no (
-                *(src+2)='(';
+                *(src+4)='(';
                 cobra = true;
               }//*/
-            } else if (c=='f' && c2=='o' && c3=='r') {
-              if (c4==' ' && c5=='(') { // with `(`
+
+            /*} else if ((four & 0xffffff) == *((uint32_t*)"for\0")) {*/
+            } else if (
+              (four == *((uint32_t*)"for "))
+              /*(four == *((uint32_t*)"for("))  */
+            ) {
+              if (c5!='(') {
+
+            /*} else if (c=='f' && c2=='o' && c3=='r') {*/
+              //if (c4==' ' && c5=='(') { // with `(`
                 /*printf("IF with (\n");*/
-              } else if (c4==' ') { // no `(`
+              //} else if (c4==' ') { // no `(`
                 /*printf("IF w/o (\n");*/
               //if (c3!='(' || c3<=' '&&c4!='(') { // no (
                 *(src+3)='(';
@@ -200,8 +211,11 @@ void rewrite(char* dest, char* src, size_t n) {
                   //printf("%d\n", (int)(src-copy));
                 }
                 cobra = true;
+
               }
-            } else if (c=='w' && c2=='h' && c3=='i' && c4=='l' && c5=='e') {
+
+            } else if (four == *((uint32_t*)"whil") && c5 == 'e') {
+            //} else if (c=='w' && c2=='h' && c3=='i' && c4=='l' && c5=='e') {
               if (c6==' ' && c7=='(') { // with `(`
 
               } else if (c6==' ') { // no `(`
@@ -209,10 +223,20 @@ void rewrite(char* dest, char* src, size_t n) {
                 cobra = true;
               }
             }
+          } else {
+            pc = *(src-1);
           }
 
-         char pc = *(src-1);
-         if (pc<=' ') {
+          /*char c3 = *(src+2);
+          char c4 = *(src+3);
+          if (c=='f' && c2=='u' && c3=='n' && c4<=' ') {
+            printf("%3d %c \n", pc, pc);
+          }*/
+
+          if (
+            line_end == nil ||
+            pc<=' ' || pc=='(' || pc=='!' || pc==':' || pc==','
+          ) {
 
             char c3 = *(src+2);
             char c4 = *(src+3);
@@ -221,7 +245,19 @@ void rewrite(char* dest, char* src, size_t n) {
             char c7 = *(src+6);
             char c8 = *(src+7);
 
-            if (c=='f' && c2=='u' && c3=='n' && c4<=' ') {
+            if (c=='i' && c2=='f') {
+              /*printf("fourcc  %d \n", four & 0xffff);*/
+              /*printf("fourcc* %d \n", (*(uint32_t*)"if  ") & 0xffff);*/
+              /*printf("IF\n");*/
+              if (c3==' ' && c4=='(') { // with `(`
+                /*printf("IF with (\n");*/
+              } else if (c3==' ') { // no `(`
+                /*printf("IF w/o (\n");*/
+              //if (c3!='(' || c3<=' '&&c4!='(') { // no (
+                *(src+2)='(';
+                cobra = true;
+              }//*/
+            } else if (c=='f' && c2=='u' && c3=='n' && (c4<=' ' || c4=='(')) {
               // `fun` -> `function`
 
               char* p = copy;
@@ -235,7 +271,7 @@ void rewrite(char* dest, char* src, size_t n) {
               *(src+2) = 'i';
               *(src+3) = 'o';
               *(src+4) = 'n';
-              *(src+5) = ' ';
+              *(src+5) = c4; // sp or `(`
               //*if (line_start != nil) line_start -= 4;
               prev_line_end -= 5;
 
@@ -272,6 +308,7 @@ void rewrite(char* dest, char* src, size_t n) {
 
 
         char line_start_ch = *line_start;
+        char prev_line_end_ch0 = *(prev_line_end-1);
         char prev_line_end_ch = *prev_line_end;
 
         //if (1) {
@@ -285,8 +322,8 @@ void rewrite(char* dest, char* src, size_t n) {
           prev_line_end_ch != ':' &&
           prev_line_end_ch != '&' &&
           prev_line_end_ch != '|' &&
-          prev_line_end_ch != '+' &&
-          prev_line_end_ch != '-' &&
+          (prev_line_end_ch != '+' || prev_line_end_ch0=='+') &&
+          (prev_line_end_ch != '-' || prev_line_end_ch0=='-') &&
           prev_line_end_ch != '*' &&
           prev_line_end_ch != '/' &&
           line_start_ch != '.' &&
@@ -382,6 +419,8 @@ void rewrite(char* dest, char* src, size_t n) {
     if (c=='\n') src++; else {
       /*printf("nl expected\n");*/
     }
+
+    //pc = c;
   }
 
   while (stack > stack_base) {
@@ -690,12 +729,6 @@ void main(int argc, char** argv) {
     FAIL = 1;
   }
 
-  /*for (int i = 0; i < OPS; i++) {
-    UNARY[i] = op_desc[2*i] & 1;
-    STMNT[i] = op_desc[2*i] & 2;
-    PRI[i] = op_desc[1+2*i];
-  }*/
-
   FILE* f = fopen(argv[1], "r");
   if (!f) printf("io\n"), exit(1);
   fseek(f, 0, SEEK_END); // seek to end of file
@@ -717,7 +750,9 @@ void main(int argc, char** argv) {
 #endif
 
     uint64_t mint = mcstime();
-    int runs = 100;
+    int runs = 50;
+    /*int runs = 100;*/
+    /*int runs = 1000;*/
     for (int test = 1; test <= runs; test++) {
       uint64_t t0 = mcstime();
       rewrite(dbuf, obuf, n);
@@ -725,7 +760,7 @@ void main(int argc, char** argv) {
       if (t < mint) mint = t;
     }
     //printf("rewritten in %d mcs\n", t/runs);
-    printf("\nrewritten in %d mcs (min)\n", mint);
+    printf("\nrewritten in %.3f ms (min)\n", mint * 1.0 / 1000);
 
 #ifdef STATS
     printf("start stats\n");
