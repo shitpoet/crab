@@ -7,16 +7,11 @@
 
 //#define STATS
 
-char DBG_T = 0;
-char DBG_PT = 0;
-char DBG_PT_POOL = 0;
-char DBG_PE = 1;
-char FAIL = 0;
-
 #define true 1
 #define false 0
-
+#define bool char
 #define nil NULL
+
 #define BUF_SIZE (512*1024)
 
 #define ID 1
@@ -56,8 +51,8 @@ typedef struct _tok {
   };
 } tok_t;
 
-char tbuf[BUF_SIZE]; // buf for token strings
-char sbuf[BUF_SIZE]; // buf for symbol strings
+//char tbuf[BUF_SIZE]; // buf for token strings
+//char sbuf[BUF_SIZE]; // buf for symbol strings
 
 #ifdef STATS
 int start_stats[256];
@@ -85,6 +80,28 @@ void dump_stack(int* base, int* ptr) {
   printf("\n");
 }
 
+// base tab is whole file indent
+// find first line with non-ws characters
+// and return indent of it
+int calc_base_tab(char* src, size_t n) {
+  char* end = src + n;
+  int tab;
+  char ch = *src;
+  do {
+    tab = 0;
+    while (src<end && ch==' ') {
+      tab++;
+      ch = *++src;
+    }
+    if (ch != '\n') break;
+    while (src<end && ch=='\n') {
+      ch = *++src;
+    }
+  } while (src<end);
+  /*printf("base tab %d \n", tab);*/
+  return tab;
+}
+
 void rewrite(char* dest, char* src, size_t n) {
   char* end = src + n;
 
@@ -95,14 +112,7 @@ void rewrite(char* dest, char* src, size_t n) {
   //char* line_end = src;
   char* prev_line_end = src; // before comments
 
-  char tab = 0;
-
-  char* pre = src;
-  char pre_ch = *pre;
-  while (pre<end && pre_ch==' ') {
-    tab++;
-    pre_ch = *++pre;
-  }
+  int tab = calc_base_tab(src, n);
   stack[0] = tab;
   int prev_tab = tab;
 
@@ -326,6 +336,8 @@ void rewrite(char* dest, char* src, size_t n) {
           (prev_line_end_ch != '-' || prev_line_end_ch0=='-') &&
           prev_line_end_ch != '*' &&
           prev_line_end_ch != '/' &&
+          prev_line_end_ch != '<' &&
+          prev_line_end_ch != '>' &&
           line_start_ch != '.' &&
           !(
             *(prev_line_end-0) == 'r' &&
@@ -444,248 +456,6 @@ void rewrite(char* dest, char* src, size_t n) {
   *dest = 0;
 }
 
-void rewrite______(char* dbuf0, char* buf, size_t n) {
-  //int ln = 1;
-  char c0 = 0, c1, c, c2, c3, c4;
-  int i0;
-  int i = 0;
-  char* id;
-  memcpy(tbuf, buf, n);
-  memcpy(sbuf, buf, n);
-
-  //memset(tok, 0, sizeof(tok));
-
-  memset(tok, 0, sizeof(tok_t)*n);
-  //return 0;
-
-  //char* dbuf0 = malloc(n*2);
-  memset(dbuf0, 0, n*2);
-  char* dbuf = dbuf0;
-
-  char* src = buf;
-  char* dest = dbuf;
-
-  int indents[100];
-  int* indent_stack = indents;
-  int indent = 0;
-  int last_indent = 0;
-  int level = 0;
-
-  int sol = true;
-  uint32_t four;
-  //tok_t* pretok = tok;
-  tok_t* curtok = tok+1;
-  //while (i < n) {
-  while (src < buf+n) {
-    char c = *src;
-
-    *dest++ = c;
-    src++;
-  }
-
-  while (0) {
-    //i0 = i;
-    //c0 = pretok->s ? pretok->s[0] : 0;
-
-    /*c = buf[i];
-    c2 = buf[i+1];
-    c3 = buf[i+2];
-    c4 = buf[i+3];*/
-
-    /*four = *(uint32_t*)(&buf[i]);
-    c = four & 0xff;
-    c2 = (four >> 8) & 0xff;
-    c3 = (four >> 16) & 0xff;
-    c4 = (four >> 24) & 0xff;*/
-
-    //curtok->ln = ln;
-    //putchar(c);
-
-#ifdef STATS
-    start_stats[c]++;
-#endif
-
-    /*while (c==' ') {
-      indent++;
-      c = buf[++i];
-    }*/
-    // skip cmnts and ws
-
-  }
-
-
-  while (0) {
-    if (c==' ') {
-      if (sol) {
-        indent = 0;
-        while (c==' ') {
-          indent++;
-          c = buf[++i];
-        }
-        if (indent > last_indent) {
-          last_indent = indent;
-        }
-      } else {
-        *dbuf++ = c;
-        i++;
-        //if (sol) indent++;
-      }
-    } else if (c=='\n') {
-      *dbuf++ = c;
-      i++;
-      if (!sol) {
-        sol = 1;
-        /*if (indent > last_indent) {
-          last_indent = indent;
-          *indent_stack++ = indent;
-          level++;
-          *dbuf++ = '{';
-        }
-        printf("%d \n", indent);*/
-      }
-      indent = 0;
-    } else if (((c>='a')&&(c<='z'))||((c>='A')&&(c<='Z'))||(c=='_')||(c=='$')) {
-      sol = 0;
-      //state = ID;
-      curtok->t = ID;
-      curtok->s = &tbuf[i];
-      int h = 0;
-      while (i < n && (
-        c>='a'&&c<='z' || c>='A'&&c<='Z' ||
-        c>='0'&&c<='9' || c=='_' || c=='$'
-      )) {
-        h = h * 256 + h;
-        *dbuf++ = c;
-        c = buf[++i];
-      }
-      tbuf[i] = 0;
-      //printf(" %s \n", curtok->s);
-
-      if (h == ('f'*256+'u')*256+'n') {
-        //patch(i0, i, "function", 8);
-      }
-      curtok++;
-    } else if (c=='\'') {
-      sol = 0;
-      curtok->t = STR1;
-      curtok->s = &tbuf[i+1];
-      while ((i < n) && (c = buf[++i]) !='\'') {
-      }
-      tbuf[i++] = 0;
-      strcat(dbuf,curtok->s);
-      curtok++;
-    } else if (c=='"') {
-      sol = 0;
-      curtok->t = STR2;
-      curtok->s = &tbuf[i+1];
-      do {
-        c1 = c;
-        c = buf[++i];
-      } while (i < n && ((c1 == '\\') || (c != '"')));
-      tbuf[i++] = 0;
-      curtok++;
-    } else if (
-      c>='0' && c<='9' ||
-      c=='0' && c2=='x' ||
-      c=='.' && c2>='0' && c2<='9'
-    ) {
-      sol = 0;
-      curtok->t = NUM;
-      curtok->s = &tbuf[i];
-      while ((i < n) && (
-        ((c>='0')&&(c<='9')) || ((c>='a')&&(c<='f')) || ((c>='A')&&(c<='F')) || (c=='.') || (c=='x')
-      )) {
-        *dbuf++ = c;
-        c = buf[++i];
-
-      }
-      tbuf[i] = 0;
-
-      strcpy(dbuf,curtok->s);
-
-      curtok++;
-    } else if ((c == '/') && (c2 == '/')) { // skip // comment
-      while (i<n && (c != 13) && (c != 10)) {
-        tbuf[i] = 0;
-        *dbuf++ = c;
-        c = buf[++i];
-      }
-    } else if ((c=='/') && (c2=='*')) {
-      do {
-        i++;
-        *dbuf++ = c;
-        c = buf[i];
-        c2 = buf[i+1];
-        //if (c == 10) ln++;
-      } while (i < n && ((c!='*') || (c2!='/')));
-      *dbuf++ = c;
-      *dbuf++ = c2;
-      i+=2;
-    } else if ((c == '/') && (
-      c0=='=' || c0=='(' || c0=='[' ||
-      c0==':' || c0=='&' || c0=='|'
-    )) {
-      sol = 0;
-      curtok->t = RE;
-      curtok->s = &tbuf[i];
-      c2 = 0; c1 = 0;
-      do {
-        c2 = c1; c1 = c;
-        c = buf[++i];
-        if (c == '\\') i++;
-      } while (i<n && c != '/');
-      //} while (((c2!='\\')&&(c1 == '\\')) || (c != '/'));
-      do {
-        c = buf[++i];
-      } while ((c=='g') || (c=='i') || (c=='m'));
-      tbuf[i] = 0;
-      curtok++;
-    } else {
-      sol = 0;
-      //if (c=='*' && c2=='/') err("cmnt");
-      curtok->t = SYM;
-      curtok->s = &sbuf[i];
-      if ((c4=='=')&&(c3=='>')&&(c2=='>')&&(c=='>')) {
-        curtok->n = 4;
-      } else if (
-        (c3=='=')&&(
-          (c2=='=')&&( (c=='=')||(c=='!') ) ||
-          (c2=='>')&&(c=='>') || (c2=='<')&&(c=='<')
-        ) || ( (c=='>')&&(c2=='>')&&(c3=='>') )
-      ) {
-        curtok->n = 3;
-      } else if (
-        ((c2=='=') && (
-          (c=='=')||(c=='<')||(c=='>')||(c=='+')||(c=='-')||(c=='*')||(c=='/')||(c=='%')||(c=='&')||(c=='^')||(c=='|')||c=='!'
-        )) ||
-        ((c=='&')&&(c2=='&')) || ((c=='|')&&(c2=='|')) ||
-        ((c=='+')&&(c2=='+')) || ((c=='-')&&(c2=='-')) ||
-        ((c=='>')&&(c2=='>')) || ((c=='<')&&(c2=='<'))
-        // dont merge '(' and ')' there
-      ) {
-        curtok->n = 2;
-      } else {
-        curtok->n = 1;
-      }
-      i += curtok->n;
-
-      strncpy(dbuf, curtok->s, curtok->n);
-      dbuf += curtok->n;
-
-      curtok++;
-    }
-
-    tok_t* pretok = (curtok-1);
-    //if (pretok == 0) err("pretok == NULL");
-    //if (pretok->s == 0) err("pretok->s == NULL");
-    //if (strlen(pretok->s) == 0) err("strlen(pretok->s) == NULL");
-    if (pretok->s) c0 = (curtok-1)->s[0];
-  }
-  //return ((size_t)curtok - (size_t)tok)/sizeof(tok_t);
-  //return ln;
-  //return dbuf0;
-}
-
 /*#define pt_printf(...) \
   if(DBG_PT) printf(__VA_ARGS__)*/
 
@@ -706,7 +476,27 @@ void rewrite______(char* dbuf0, char* buf, size_t n) {
 #define PURPLE "\x1b[1;35m"
 
 char obuf[BUF_SIZE];
+char sbuf[BUF_SIZE];
+char dbuf[BUF_SIZE];
 //char mbuf[BUF_SIZE];
+
+char* read_and_rewrite(char* fn) {
+  /*uint64_t mint = mcstime();*/
+  FILE* f = fopen(fn, "r");
+  if (!f) printf("io\n"), exit(1);
+  fseek(f, 0, SEEK_END); // seek to end of file
+  size_t n = ftell(f); // get current file pointer
+  /*char* sbuf = malloc(n*4);*/
+  fseek(f, 0, SEEK_SET); // seek back to beginning of file
+  fread(sbuf, n, 1, f);
+  fclose(f);
+  sbuf[n] = 0;
+  /*char* dbuf = sbuf + n + 1;*/
+  rewrite(dbuf, sbuf, n);
+  /*mint = mcstime() - mint;*/
+  /*sprintf(sbuf, "\n\n read_and_rewrite: %d mcs \n", mint);*/
+  return dbuf;
+}
 
 // t - debug tokens
 // p - debug parser
@@ -715,21 +505,28 @@ char obuf[BUF_SIZE];
 // no args - just print code
 
 void main(int argc, char** argv) {
-  char dump = 0;
-  char dbg = argc > 2;
-  if (argc > 2) {
-    char* opts = argv[2];
-    DBG_T = DBG_PT = strchr(opts,'t')>0;
-    DBG_PE = strchr(opts, 'p')>0;
-    dump = strchr(opts,'d')>0;
-    FAIL = strchr(opts, 'f')>0;
-  } else {
-    DBG_T = DBG_PT = DBG_PT_POOL = DBG_PE = 0;
-    dump = 0;
-    FAIL = 1;
+  /*printf("%d args\n", argc);*/
+  char* opts = nil;
+  bool bench = false;
+  char* ifn = nil;
+  char* ofn = nil;
+  for (int i = 1; i < argc; i++) {
+    char* arg = argv[i];
+    if (arg[0]=='-') {
+      opts = arg;
+      bench = strchr(opts,'b')>0;
+      /*printf("opts %s\n", arg);*/
+    } else if (ifn == nil) {
+      ifn = arg;
+      /*printf("input file %s\n", arg);*/
+    } else {
+      ofn = arg;
+      /*printf("output file %s\n", arg);*/
+    }
+    /*printf("(%d) %s\n", i, argv[i]);*/
   }
 
-  FILE* f = fopen(argv[1], "r");
+  FILE* f = fopen(ifn, "r");
   if (!f) printf("io\n"), exit(1);
   fseek(f, 0, SEEK_END); // seek to end of file
   size_t n = ftell(f); // get current file pointer
@@ -741,9 +538,8 @@ void main(int argc, char** argv) {
   puts("\n=========================================\n");//*/
 
   char* dbuf = malloc(n*2);
-  tok = malloc(sizeof(tok_t)*n);
 
-  if (DBG_T) {
+  if (bench) {
 
 #ifdef STATS
     for (int j = 0; j < 256; j++) start_stats[j] = 0;
@@ -777,9 +573,15 @@ void main(int argc, char** argv) {
     /*printf(":::::::::::::::::::::::::::::::::::::::::\n");*/
     /*printf(dbuf);*/
 
-    FILE* of = fopen("out.js", "w");
-    fwrite(dbuf, strlen(dbuf), 1, of);
-    fclose(of);
+    if (argc > 3) {
+      FILE* of = fopen(ofn, "w");
+      fwrite(dbuf, strlen(dbuf), 1, of);
+      fclose(of);
+    }
   }
 
+}
+
+int test(int arg) {
+  return 123;
 }
