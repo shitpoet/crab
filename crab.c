@@ -188,6 +188,23 @@ void rewrite(char* dest, char* src, size_t n) {
                 cobra = true;
               }//*/
 
+              int skip = 2;
+              int add = 3;
+              char* p = copy;
+              while (p < src + skip + add) {
+                *(p - add) = *p; p++;
+              }
+              copy -= add;
+              src -= skip-1;
+              *(src) = 's';
+              *(src+1) = 'e';
+              *(src+2) = ' ';
+              /**(src+3) = 'i';*/
+              /**(src+4) = 'f';*/
+              /**(src+5) = '_';//c5; // sp or `(`*/
+              //*if (line_start != nil) line_start -= 4;
+              prev_line_end -= add;
+
             /*} else if ((four & 0xffffff) == *((uint32_t*)"for\0")) {*/
             } else if (
               (four == *((uint32_t*)"for "))
@@ -505,7 +522,7 @@ char* read_and_rewrite(char* fn) {
 // no args - just print code
 
 void main(int argc, char** argv) {
-  /*printf("%d args\n", argc);*/
+  printf("%d args\n", argc);
   char* opts = nil;
   bool bench = false;
   char* ifn = nil;
@@ -515,15 +532,15 @@ void main(int argc, char** argv) {
     if (arg[0]=='-') {
       opts = arg;
       bench = strchr(opts,'b')>0;
-      /*printf("opts %s\n", arg);*/
+      printf("opts %s\n", arg);
     } else if (ifn == nil) {
       ifn = arg;
-      /*printf("input file %s\n", arg);*/
+      printf("input file %s\n", arg);
     } else {
       ofn = arg;
-      /*printf("output file %s\n", arg);*/
+      printf("output file %s\n", arg);
     }
-    /*printf("(%d) %s\n", i, argv[i]);*/
+    printf("(%d) %s\n", i, argv[i]);
   }
 
   FILE* f = fopen(ifn, "r");
@@ -573,7 +590,7 @@ void main(int argc, char** argv) {
     /*printf(":::::::::::::::::::::::::::::::::::::::::\n");*/
     /*printf(dbuf);*/
 
-    if (argc > 3) {
+    if (ofn) {
       FILE* of = fopen(ofn, "w");
       fwrite(dbuf, strlen(dbuf), 1, of);
       fclose(of);
