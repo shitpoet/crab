@@ -69,14 +69,14 @@ void FUNCNAME(char* dest, char* src, size_t n) {
             if (four == *((uint32_t*)"let ")) {
               // insert `=` after id if there's value
               char* s = src+4;
-              while (s<end && *s<=' ') s++;
+              while (s<end && *s==' ') s++;
               while (s<end && (
                 *s>='a'&&*s<='z' || *s>='A'&&*s<='Z' ||
                 *s>='0'&&*s<='9' || *s=='_'||*s=='$'
               )) s++;
-              if (s < end && *s<=' ') {
-                while (s < end && *s<=' ') s++;
-                if (s < end && *s!='=') {
+              if (s < end && *s==' ') {
+                while (s < end && *s==' ') s++;
+                if (s < end && *s!='=' && *s!=',') {
                   *(s-1)='=';
                 }
               }
