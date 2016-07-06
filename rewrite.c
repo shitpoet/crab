@@ -1,17 +1,74 @@
+#define FLUSH() \
+  while (copy <= prev_line_end) { \
+    *dest++ = *copy++;            \
+  }
+
+// insert char
+// * modifies `src` ptr
+// should be faster than PATCH
+#define PATCH_CHAR(skip, ch)      \
+  const int add = 1;              \
+  src += skip;                    \
+  char* p = copy;                 \
+  while (p < src + add) {         \
+    *(p - add) = *p; p++;         \
+  }                               \
+  copy -= add;                    \
+  src -= add;                     \
+  *src = ch;                      \
+  prev_line_end -= add;
+
+// insert some small string
+// * modifies `src` ptr
+#define PATCH(skip, add, str)     \
+  src += skip;                    \
+  char* p = copy;                 \
+  while (p < src + add) {         \
+    *(p - add) = *p; p++;         \
+  }                               \
+  copy -= add;                    \
+  src -= add;                     \
+  char* q = str;                  \
+  for (int i = 0; i < add; i++)   \
+    *src++ = *q++;                \
+  prev_line_end -= add;
+
+/* rewrite
+
+    for each line:
+      -- analyzing the line --
+      caculate indent size
+      skip any comments
+      find start of line
+      do some ad hoc patching for `if`,`elif`,`fun` etc
+      find end of line
+      -- flush --
+      copy analyzed fragment of source to destination up to
+      the end of previous line (so we still have place to add
+      opening brace)
+      -- adding braces --
+      given: starts and ends of current and previous lines
+             indents of current and previous lines
+      if ident changed add opening brace on increase of indent
+      or add closing brace on decrease of indent
+
+*/
 void FUNCNAME(char* dest, char* src, size_t n) {
   char* end = src + n;
   char* copy = src;
+  char* prev_line_start = src; // after comments
   char* prev_line_end = src+1; // before comments
   stack_t stack_base[64];
   stack_t* stack = stack_base;
   int tab = calc_base_tab(src, n);
   int prev_tab = tab;
   stack[0] = tab;
+  //char* prev_line_cmnt_start = src; ///todo: for braces after `*` only, consier to delete this pointer
 
   /*dump_stack(stack_base, stack);*/
 
-  char cobra = false; // it is needed to add `}`
-  char prev_cobra = false; // for prev line
+  bool cobra = false; // it is needed to add `}`
+  bool prev_cobra = false; // for prev line
 
   char pc = '\0'; // prev char for cobra and shortcut expands
   while (src < end) {
@@ -28,8 +85,11 @@ void FUNCNAME(char* dest, char* src, size_t n) {
     char* line_start = nil;
     char* line_end = nil;
 
+    //char* line_cmnt_start = nil;
+
     // scan the line:
     // - skip comments
+    // - skip strings
     // - detect keywords `function`, `if`, `for` etc
     /*int sol = true;*/
     while (src < end) {
@@ -40,6 +100,11 @@ void FUNCNAME(char* dest, char* src, size_t n) {
       } else if (c=='\n') {
         break;
       } else if (c=='/' && c2=='/') {
+        /*if (*(src+2)=='i' && *(src+3)=='f') {
+          printf("IF CMNT\n");
+          skip_indent = true;
+        }*/
+        //line_cmnt_start = src;
         while (src<end && c!='\n') {
           c = *++src;
         }
@@ -55,6 +120,18 @@ void FUNCNAME(char* dest, char* src, size_t n) {
           c2 = *(src+1);
         }
         src+=2;
+      } else if (c=='\'') { // single quote
+        src++;
+        while (src<end && *src!='\'') {
+          src++;
+        }
+        src++;
+      } else if (c=='"') { // double quote
+        src++;
+        while (src<end && *src!='"') {
+          src++;
+        }
+        src++;
       } else {
         if (src+7 < end) {
           if (line_end == nil) { // start of line
@@ -83,92 +160,47 @@ void FUNCNAME(char* dest, char* src, size_t n) {
             } else if (c=='e' && c2=='l' && c3=='i' && c4=='f') {
 
               if (c5==' ' && c6=='(') { // with `(`
-                /*printf("IF with (\n");*/
               } else if (c5==' ') { // no `(`
-                /*printf("IF w/o (\n");*/
-              //if (c3!='(' || c3<=' '&&c4!='(') { // no (
+#ifdef EXPAND
+                PATCH_CHAR(5,'(');
+                src-=5;
+#else
                 *(src+4)='(';
+#endif
                 cobra = true;
               }//*/
 
-              int skip = 2;
-              int add = 3;
-              char* p = copy;
-              while (p < src + skip + add) {
-                *(p - add) = *p; p++;
-              }
-              copy -= add;
-              src -= skip-1;
-              *(src) = 's';
-              *(src+1) = 'e';
-              *(src+2) = ' ';
-              /**(src+3) = 'i';*/
-              /**(src+4) = 'f';*/
-              /**(src+5) = '_';//c5; // sp or `(`*/
-              //*if (line_start != nil) line_start -= 4;
-              prev_line_end -= add;
-
+              PATCH(2,3,"se ");
             /*} else if ((four & 0xffffff) == *((uint32_t*)"for\0")) {*/
             } else if (
               (four == *((uint32_t*)"for "))
               /*(four == *((uint32_t*)"for("))  */
             ) {
               if (c5!='(') {
-
-            /*} else if (c=='f' && c2=='o' && c3=='r') {*/
-              //if (c4==' ' && c5=='(') { // with `(`
-                /*printf("IF with (\n");*/
-              //} else if (c4==' ') { // no `(`
-                /*printf("IF w/o (\n");*/
-              //if (c3!='(' || c3<=' '&&c4!='(') { // no (
+#ifdef EXPAND
+                PATCH_CHAR(4, '('); src-=3;
+#else
                 *(src+3)='(';
+#endif
                 if (!(
                   (c5=='v' && c6=='a' && c7=='r' && c8<=' ') ||
                   (c5=='l' && c6=='e' && c7=='t' && c8<=' ')
                 )) {
-                  char* p = copy;
-                  while (p < src + 4 + 4) {
-                    *(p - 4) = *p; p++;
-                  }
-                  copy -= 4;
-                  *(src) = 'l';
-                  *(src+1) = 'e';
-                  *(src+2) = 't';
-                  *(src+3) = ' ';
-                  //*if (line_start != nil) line_start -= 4;
-                  prev_line_end -= 4;
-                  /*src -= 4;*/
-                  //printf("%d\n", (int)(src-copy));
+                  PATCH(4, 4, "let ");
                 }
                 cobra = true;
-
               }
-
             } else if (c=='r' && c2=='e' && c3=='t' && c4==' ') {
-
-              int skip = 3; // 'ret'
-              int add = 3;  // 'urn'
-              char* p = copy;
-              while (p < src + skip + add) {
-                *(p - add) = *p; p++;
-              }
-              copy -= add;
-              //src -= skip-1;
-              *(src) = 'u';
-              *(src+1) = 'r';
-              *(src+2) = 'n';
-              /**(src+3) = 'i';*/
-              /**(src+4) = 'f';*/
-              /**(src+5) = '_';//c5; // sp or `(`*/
-              //*if (line_start != nil) line_start -= 4;
-              prev_line_end -= add;
-
+              PATCH(3, 3, "urn");
             } else if (four == *((uint32_t*)"whil") && c5 == 'e') {
             //} else if (c=='w' && c2=='h' && c3=='i' && c4=='l' && c5=='e') {
               if (c6==' ' && c7=='(') { // with `(`
-
               } else if (c6==' ') { // no `(`
+#ifdef EXPAND
+                PATCH_CHAR(6,'(');
+#else
                 *(src+5)='(';
+#endif
                 cobra = true;
               }
             }
@@ -186,7 +218,6 @@ void FUNCNAME(char* dest, char* src, size_t n) {
             line_end == nil ||
             pc<=' ' || pc=='(' || pc=='!' || pc==':' || pc==','
           ) {
-
             char c3 = *(src+2);
             char c4 = *(src+3);
             char c5 = *(src+4);
@@ -195,39 +226,21 @@ void FUNCNAME(char* dest, char* src, size_t n) {
             char c8 = *(src+7);
 
             if (c=='i' && c2=='f') {
-              /*printf("fourcc  %d \n", four & 0xffff);*/
-              /*printf("fourcc* %d \n", (*(uint32_t*)"if  ") & 0xffff);*/
-              /*printf("IF\n");*/
+              printf("IF\n");
               if (c3==' ' && c4=='(') { // with `(`
-                /*printf("IF with (\n");*/
               } else if (c3==' ') { // no `(`
-                /*printf("IF w/o (\n");*/
-              //if (c3!='(' || c3<=' '&&c4!='(') { // no (
+#ifdef EXPAND
+                PATCH_CHAR(3, '(');
+#else
                 *(src+2)='(';
+#endif
                 cobra = true;
-              }//*/
+              }
             } else if (c=='f' && c2=='u' && c3=='n' && (c4<=' ' || c4=='(')) {
               // `fun` -> `function`
-
-              char* p = copy;
-              while (p < src + 3 + 5) {
-                *(p - 5) = *p; p++;
-              }
-              copy -= 5;
-              src -= 2;
-              *(src) = 'c';
-              *(src+1) = 't';
-              *(src+2) = 'i';
-              *(src+3) = 'o';
-              *(src+4) = 'n';
-              *(src+5) = c4; // sp or `(`
-              //*if (line_start != nil) line_start -= 4;
-              prev_line_end -= 5;
-
+              PATCH(3, 5, "ction");
             }
-
           }
-
         }
 
         if (c=='{' && cobra) {
@@ -261,7 +274,7 @@ void FUNCNAME(char* dest, char* src, size_t n) {
         char prev_line_end_ch = *prev_line_end;
 
         //if (1) {
-        if (
+        if ( // when to add braces
           prev_line_end_ch != '(' &&
           prev_line_end_ch != '{' &&
           prev_line_end_ch != '[' &&
@@ -273,7 +286,7 @@ void FUNCNAME(char* dest, char* src, size_t n) {
           prev_line_end_ch != '|' &&
           (prev_line_end_ch != '+' || prev_line_end_ch0=='+') &&
           (prev_line_end_ch != '-' || prev_line_end_ch0=='-') &&
-          prev_line_end_ch != '*' &&
+          (prev_line_end_ch != '*' || (prev_line_start==prev_line_end) ) &&
           prev_line_end_ch != '/' &&
           prev_line_end_ch != '<' &&
           prev_line_end_ch != '>' &&
@@ -289,19 +302,18 @@ void FUNCNAME(char* dest, char* src, size_t n) {
             *(prev_line_end-1) == 'e' &&
             *(prev_line_end-2) == 'l' &&
             *(prev_line_end-3) <= ' '
-          ) /*&&
-          prev_line_end > src+1*/
+          ) /*&& (
+            !prev_line_cmnt_start ||
+            memcmp(prev_line_cmnt_start, "//if", 4) != 0
+          )*/
         ) {
+
+          /*printf("prev line cmnt start %s\n", prev_line_cmnt_start);*/
 
           stack++;
           *stack = prev_tab;
 
-          //printf("copy: ");
-          while (copy <= prev_line_end) {
-            //printf("%c",*copy);
-            *dest++ = *copy++;
-          }
-          //printf("\n");
+          FLUSH();
 
           if (prev_cobra) {
             *dest++ = ')';
@@ -315,12 +327,7 @@ void FUNCNAME(char* dest, char* src, size_t n) {
 
         } else {
           /*printf("skip adding {\n");*/
-
-          /*while (copy <= prev_line_end) {
-            //printf("%c",*copy);
-            *dest++ = *copy++;
-          }*/
-
+          FLUSH();
         }
 
       } else if (tab < prev_tab) {
@@ -331,18 +338,15 @@ void FUNCNAME(char* dest, char* src, size_t n) {
         /*while (tab < *stack) { // && stack > stack_base ) {*/
         while (tab < *stack && stack > stack_base ) {
           --stack;
+          FLUSH();
 
-          while (copy <= prev_line_end) {
-            *dest++ = *copy++;
-          }
-
-#ifdef EXPAND_BRACES
+#ifdef EXPAND
           *dest++ = '\n';
           for (int t = 0; t < *(stack+1)-2; t++)
             *dest++ = ' ';
           *dest++ = '}';
 
-          // fix braceless else being at new line
+          // fix braceless `else` being at new line
           char* f = copy;
           while (f < end && *f <= ' ') f++; // skip ws
           if (
@@ -363,17 +367,13 @@ void FUNCNAME(char* dest, char* src, size_t n) {
         }
 
       } else {
-        //printf("copy: ");
-        while (copy <= prev_line_end) {
-          //printf("%c",*copy);
-          *dest++ = *copy++;
-        }
-        //printf("\n");
-
+        FLUSH();
       }
 
+      prev_line_start = line_start; ///todo: for braces after `*`, consider deleting this pointer
       prev_line_end = line_end;
     }
+    /*prev_line_cmnt_start = line_cmnt_start;*/
 
     if (src >= end) break;
 
@@ -383,18 +383,15 @@ void FUNCNAME(char* dest, char* src, size_t n) {
     }
 
     //printf("tab %d length %d \n",tab,len);
-    if (c=='\n') src++; else {
-      /*printf("nl expected\n");*/
-    }
-
+    if (c=='\n') src++;
     //pc = c;
   }
 
+  /* finalize  */
   while (stack > stack_base) {
-    while (copy <= prev_line_end) {
-      *dest++ = *copy++;
-    }
-#ifdef EXPAND_BRACES
+    --stack;
+    FLUSH();
+#ifdef EXPAND
     *dest++ = '\n';
     for (int t = 0; t < *(stack+1)-2; t++)
       *dest++ = ' ';
@@ -403,9 +400,7 @@ void FUNCNAME(char* dest, char* src, size_t n) {
     *dest++ = ' ';
     *dest++ = '}';
 #endif
-    stack--;
   }
-
   while (copy < end) {
     *dest++ = *copy++;
   }

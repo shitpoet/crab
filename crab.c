@@ -73,11 +73,11 @@ int calc_base_tab(char* src, size_t n) {
 
 #undef FUNCNAME
 #define FUNCNAME rewrite_expanded
-#define EXPAND_BRACES
+#define EXPAND
 #include "rewrite.c"
 
 #undef FUNCNAME
-#undef EXPAND_BRACES
+#undef EXPAND
 
 void rewrite(char* dest, char* src, size_t n, bool expanded) {
   if (expanded)
