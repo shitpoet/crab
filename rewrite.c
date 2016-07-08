@@ -49,7 +49,7 @@
       -- adding braces --
       given: starts and ends of current and previous lines
              indents of current and previous lines
-      if ident changed add opening brace on increase of indent
+      if indent changed add opening brace on increase of indent
       or add closing brace on decrease of indent
 
 */
