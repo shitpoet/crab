@@ -120,20 +120,23 @@ void FUNCNAME(char* dest, char* src, size_t n) {
           c2 = *(src+1);
         }
         src+=2;
-      } else if (c=='\'') { // single quote
-        src++;
-        while (src<end && *src!='\'') {
-          src++;
-        }
-        src++;
-      } else if (c=='"') { // double quote
-        src++;
-        while (src<end && *src!='"') {
-          src++;
-        }
-        src++;
       } else {
-        if (src+7 < end) {
+
+        if (c=='\'') { // single quote
+          src++;
+          while (src<end && *src!='\'') {
+            src++;
+          }
+          //src++;
+          //if (src<end) c = *src;
+        } else if (c=='"') { // double quote
+          src++;
+          while (src<end && *src!='"') {
+            src++;
+          }
+          //src++;
+          //if (src<end) c = *src;
+        } else if (src+7 < end) {
           if (line_end == nil) { // start of line
             uint32_t four = *(uint32_t*)src;
             char c3 = *(src+2);
@@ -190,8 +193,6 @@ void FUNCNAME(char* dest, char* src, size_t n) {
                 }
                 cobra = true;
               }
-            } else if (c=='r' && c2=='e' && c3=='t' && c4==' ') {
-              PATCH(3, 3, "urn");
             } else if (four == *((uint32_t*)"whil") && c5 == 'e') {
             //} else if (c=='w' && c2=='h' && c3=='i' && c4=='l' && c5=='e') {
               if (c6==' ' && c7=='(') { // with `(`
@@ -214,6 +215,7 @@ void FUNCNAME(char* dest, char* src, size_t n) {
             printf("%3d %c \n", pc, pc);
           }*/
 
+          // expand some keyword shorthands even inside of the line!
           if (
             line_end == nil ||
             pc<=' ' || pc=='(' || pc=='!' || pc==':' || pc==','
@@ -226,7 +228,6 @@ void FUNCNAME(char* dest, char* src, size_t n) {
             char c8 = *(src+7);
 
             if (c=='i' && c2=='f') {
-              printf("IF\n");
               if (c3==' ' && c4=='(') { // with `(`
               } else if (c3==' ') { // no `(`
 #ifdef EXPAND
@@ -239,6 +240,8 @@ void FUNCNAME(char* dest, char* src, size_t n) {
             } else if (c=='f' && c2=='u' && c3=='n' && (c4<=' ' || c4=='(')) {
               // `fun` -> `function`
               PATCH(3, 5, "ction");
+            } else if (c=='r' && c2=='e' && c3=='t' && c4==' ') {
+              PATCH(3, 3, "urn");
             }
           }
         }
