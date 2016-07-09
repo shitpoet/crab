@@ -57,7 +57,8 @@ void FUNCNAME(char* dest, char* src, size_t n) {
   char* end = src + n;
   char* copy = src;
   char* prev_line_start = src; // after comments
-  char* prev_line_end = src+1; // before comments
+  char* prev_line_end = src; // before comments
+  /*char* prev_line_end = src+1; // before comments*/
   stack_t stack_base[64];
   stack_t* stack = stack_base;
   int tab = calc_base_tab(src, n);
