@@ -294,6 +294,7 @@ void FUNCNAME(char* dest, char* src, size_t n) {
           prev_line_end_ch != '/' &&
           prev_line_end_ch != '<' &&
           prev_line_end_ch != '>' &&
+          prev_line_end_ch != '`' && // js template strings
           line_start_ch != '.' &&
           !(
             *(prev_line_end-0) == 'r' &&
