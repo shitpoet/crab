@@ -38,7 +38,8 @@
     for each line:
       -- analyzing the line --
       caculate indent size
-      skip any comments
+      skip strings
+      skip comments
       find start of line
       do some ad hoc patching for `if`,`elif`,`fun` etc
       find end of line
@@ -137,6 +138,12 @@ void FUNCNAME(char* dest, char* src, size_t n) {
           }
           //src++;
           //if (src<end) c = *src;
+
+        } else if (c=='`') { // back trick
+          src++;
+          while (src<end && *src!='`') {
+            src++;
+          }
         } else if (src+7 < end) {
           if (line_end == nil) { // start of line
             uint32_t four = *(uint32_t*)src;
