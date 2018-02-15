@@ -12,6 +12,11 @@
 #define bool char
 #define nil NULL
 
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#define MAX(a,b) (((a)>(b))?(a):(b))
+
+#define echo if (!quiet) printf
+
 #define BUF_SIZE (512*1024)
 
 uint64_t mstime() {
@@ -66,18 +71,67 @@ int calc_base_tab(char* src, size_t n) {
   return tab;
 }
 
+// misc
+
+bool is_id_ch(char ch) {
+  return (
+    ch>='a' && ch<='z' || ch>='A' && ch<='Z' ||
+    ch=='_'
+  );
+}
+
+bool is_dash_id_subch(char ch, char ch2) {
+  return (
+    ch>='a' && ch<='z' || ch>='A' && ch<='Z' ||
+    ch=='_' || ch=='-'&&ch2!='>' || ch>='0' && ch<='9'
+  );
+}
+
+// additional data
+
+char* php_kws[] = {
+  "abstract", "array", "as", "break",
+  "case", "catch", "class", "const",
+  "continue", "default", "do", "echo",
+  "else", "elseif", "false", "finally", "float", "for",
+  "foreach", "fun", "function", "global",
+  "if", "include", "include_once", "int", "new",
+  "object", "print", "require", "require_once",
+  "return", "static", "string", "switch", "throw", "true", "try",
+  "null", "var", "while"
+  // the list is not full
+  // there are no words that require `(` after them f.ex.
+  // also there are no words for OOP, bc. i don't use them
+};
+
+char* php_vars[] = {
+  "GLOBALS", "_SERVER", "_GET", "_POST", "_FILES", "_COOKIE",
+  "_SESSION", "_REQUEST", "_ENV"
+};
+
 // produce several versions of rewrite function
 
 #define FUNCNAME rewrite_compact
 #include "rewrite.c"
-
 #undef FUNCNAME
+
 #define FUNCNAME rewrite_expanded
 #define EXPAND
 #include "rewrite.c"
-
-#undef FUNCNAME
 #undef EXPAND
+#undef FUNCNAME
+
+#define FUNCNAME rewrite_c
+#define C_MODE
+#include "rewrite.c"
+#undef C_MODE
+#undef FUNCNAME
+
+#define FUNCNAME rewrite_php
+#define PHP_MODE
+#include "rewrite.c"
+#undef PHP_MODE
+#undef FUNCNAME
 
 void rewrite(char* dest, char* src, size_t n, bool expanded) {
   if (expanded)
@@ -120,10 +174,13 @@ char* read_and_rewrite(char* fn, bool expanded) {
 }
 
 int main(int argc, char** argv) {
-  printf("%d args\n", argc);
+  //printf("%d args\n", argc);
   char* opts = nil;
   bool bench = false;
   bool expanded = false;
+  bool c_mode = false;
+  bool php_mode = false;
+  bool quiet = false;
   char* ifn = nil;
   char* ofn = nil;
   for (int i = 1; i < argc; i++) {
@@ -132,20 +189,25 @@ int main(int argc, char** argv) {
       opts = arg;
       bench = strchr(opts,'b')>0;
       expanded = strchr(opts,'e')>0;
-      printf("opts %s\n", arg);
+      c_mode = strchr(opts,'c')>0;
+      php_mode = strchr(opts,'p')>0;
+      quiet = strchr(opts,'q')>0;
+      echo("opts %s\n", arg);
     } else if (ifn == nil) {
       ifn = arg;
-      printf("input file %s\n", arg);
+      echo("input file %s\n", arg);
     } else {
       ofn = arg;
-      printf("output file %s\n", arg);
+      echo("output file %s\n", arg);
     }
-    printf("(%d) %s\n", i, argv[i]);
+    echo("(%d) %s\n", i, argv[i]);
   }
   if (ifn==nil) {
-    printf("usage: crab [-b] infile [outfile] \n");
-    printf("  -b - bench \n");
-    printf("  -e - expanded \n");
+    printf("usage: skim [-becq] infile [outfile] \n");
+    printf("  b - bench \n");
+    printf("  e - expanded \n");
+    printf("  c - C mode \n");
+    printf("  q - quiet \n");
     return 1;
   }
 
@@ -194,8 +256,18 @@ int main(int argc, char** argv) {
       printf("%d ('%c') %d%% \n", j, j, start_stats[j] * 100 / total );
     }
 #endif
+
   } else {
-    rewrite(dbuf, obuf, n, expanded);
+    if (c_mode) {
+      rewrite_c(dbuf, obuf, n);
+    } else if (php_mode) {
+      rewrite_php(dbuf, obuf, n);
+    } else {
+      if (expanded)
+        rewrite_expanded(dbuf, obuf, n);
+      else
+        rewrite_compact(dbuf, obuf, n);
+    }
     if (ofn) {
       FILE* of = fopen(ofn, "w");
       fwrite(dbuf, strlen(dbuf), 1, of);

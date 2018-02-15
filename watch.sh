@@ -1,5 +1,5 @@
 #!/bin/bash
-inotifywait -qq -e modify $0 *.c *.js *.tem
+inotifywait -qq -e modify $0 *.c *.js *.tem *.phw
 echo '-------------------------------------------------'
 #node --harmony --harmony_destructuring --strong_mode test.js
 #node --harmony --harmony_destructuring --debug --expose_debug_as=v8debug include.js
@@ -24,6 +24,9 @@ cat m1.out
 echo '- - - - - - - - - - - - - - - - - - - - - - - - - - - - '
 skim -e m1.js m1.oute
 cat m1.oute
+echo '- - - - - - - - - - - - - - - - - - - - - - - - - - - - '
+skim -p m1.phw m1.php
+cat m1.php
 
 # run tests
 pushd . > /dev/null
